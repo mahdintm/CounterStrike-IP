@@ -43,8 +43,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "nematimahdi88@gmail.com"
+          git config --global user.name "Mahdi Nemati"
           echo "Repository: $GITHUB_REPOSITORY"
           echo "Target branch: $BRANCH"
 
