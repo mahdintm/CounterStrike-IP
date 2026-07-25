@@ -1,20 +1,70 @@
 # CounterStrike-IP
 
-این مخزن آدرس‌های IPv4 رله‌های Counter-Strike 2 را از تنظیمات رسمی Steam استخراج می‌کند و در فایل [`ips.json`](ips.json) نگه می‌دارد.
+Automatically fetches Counter-Strike 2 relay IPv4 addresses from Steam's SDR API. The repository publishes two ready-to-use outputs:
 
-## به‌روزرسانی خودکار
+- [`ips.json`](ips.json): structured JSON with the Steam revision, update time, count, and sorted IP addresses.
+- [`list.rsc`](list.rsc): a MikroTik RouterOS import script that refreshes the `CounterStrike` firewall address list.
 
-Workflow بلافاصله پس از merge شدن اسکریپت روی شاخهٔ پیش‌فرض و سپس هر پنج دقیقه اجرا می‌شود. در طول هر اجرا، پنج بار با فاصلهٔ ۶۰ ثانیه API را می‌خواند. اگر خروجی تغییر کرده باشد، فایل JSON را با کاربر `github-actions[bot]` روی شاخهٔ پیش‌فرض commit و push می‌کند. هر درخواست ناموفق تا سه بار retry می‌شود. این روش محدودیت حداقل فاصلهٔ پنج‌دقیقه‌ای cron در GitHub Actions را پوشش می‌دهد؛ با این حال زمان شروع job توسط GitHub تضمین‌شده نیست.
-Workflow گیت‌هاب اکشن هر پنج دقیقه اجرا می‌شود و در طول هر اجرا، پنج بار با فاصلهٔ ۶۰ ثانیه API را می‌خواند. اگر خروجی تغییر کرده باشد، فایل JSON را با کاربر `github-actions[bot]` روی شاخهٔ پیش‌فرض commit و push می‌کند. این روش محدودیت حداقل فاصلهٔ پنج‌دقیقه‌ای cron در GitHub Actions را پوشش می‌دهد؛ با این حال زمان شروع job توسط GitHub تضمین‌شده نیست.
+## MikroTik automatic update
 
-برای اجرای دستی:
+Paste this into a RouterOS terminal. Replace `<OWNER>` and `<REPOSITORY>` if this repository is forked or renamed:
 
-```bash
-python3 scripts/update_ips.py
+```routeros
+/tool fetch url="https://raw.githubusercontent.com/<OWNER>/<REPOSITORY>/main/list.rsc" dst-path="list.rsc"
+/import file-name="list.rsc"
+/file remove "list.rsc"
 ```
 
-خروجی شامل آدرس منبع، revision پاسخ Steam، تعداد IPها و آرایهٔ یکتای `ips` است. POPهایی که `relays` ندارند به‌صورت امن نادیده گرفته می‌شوند.
+To refresh automatically every 15 minutes, add a scheduler entry:
 
-> برای push خودکار، در تنظیمات مخزن به مسیر **Settings → Actions → General → Workflow permissions** بروید و دسترسی **Read and write permissions** را فعال کنید. اگر شاخهٔ اصلی branch protection دارد، باید push توسط GitHub Actions نیز مجاز باشد.
+```routeros
+/system scheduler add name="Update-CS2-IPs" interval=15m start-time=startup on-event="/tool fetch url=\"https://raw.githubusercontent.com/<OWNER>/<REPOSITORY>/main/list.rsc\" dst-path=\"list.rsc\"; /import file-name=\"list.rsc\"; /file remove \"list.rsc\""
+```
 
-> Workflowهای زمان‌بندی‌شده فقط از شاخهٔ پیش‌فرض اجرا می‌شوند. بنابراین ابتدا این تغییرات را merge کنید یا از تب **Actions**، workflow با نام **Update Counter-Strike relay IPs** را به‌صورت دستی روی شاخهٔ پیش‌فرض اجرا کنید. Workflow عمومی Conda فایل `ips.json` را تولید نمی‌کند.
+Each import first removes the old `CounterStrike` entries and then adds the current Steam relay IPs. Other firewall address lists are not modified.
+
+## Run locally
+
+```bash
+python3 scripts/update_ips.py --output ips.json --mikrotik-output list.rsc
+```
+
+The updater validates all addresses, removes duplicates, sorts them numerically, and writes both files atomically. Failed requests are retried three times. A saved API response can be used without internet:
+
+```bash
+python3 scripts/update_ips.py --input steam-response.json
+```
+
+## Automation
+
+The GitHub Actions workflow runs on the default branch, fetches Steam every 60 seconds while the job is active, generates both output files, commits changes, and pushes them using `GITHUB_TOKEN`. GitHub Actions only permits scheduled triggers every five minutes, so one job performs five updates separated by 60 seconds.
+
+Repository **Settings → Actions → General → Workflow permissions** must allow **Read and write permissions**. Branch protection must also permit `github-actions[bot]` to push.
+
+## Tests
+
+```bash
+pytest -q
+python3 -m unittest discover -s tests -v
+python3 -m compileall -q scripts tests
+```
+
+---
+
+## فارسی
+
+این مخزن IPهای رله Counter-Strike 2 را از API استیم دریافت می‌کند و دو خروجی آماده می‌سازد: فایل JSON در [`ips.json`](ips.json) و اسکریپت قابل import میکروتیک در [`list.rsc`](list.rsc).
+
+### به‌روزرسانی خودکار میکروتیک
+
+دستور زیر را در ترمینال RouterOS اجرا کنید و `<OWNER>` و `<REPOSITORY>` را با نام صاحب و مخزن جایگزین کنید:
+
+```routeros
+/tool fetch url="https://raw.githubusercontent.com/<OWNER>/<REPOSITORY>/main/list.rsc" dst-path="list.rsc"
+/import file-name="list.rsc"
+/file remove "list.rsc"
+```
+
+برای اجرای خودکار هر ۱۵ دقیقه از دستور scheduler بخش انگلیسی بالا استفاده کنید. هنگام import فقط رکوردهای لیست `CounterStrike` پاک و با IPهای جدید جایگزین می‌شوند و لیست‌های دیگر تغییری نمی‌کنند.
+
+workflow گیت‌هاب هر دو فایل `ips.json` و `list.rsc` را می‌سازد، commit می‌کند و روی شاخه اصلی push می‌کند. در تنظیمات Actions باید دسترسی **Read and write permissions** فعال باشد و branch protection نیز push ربات GitHub Actions را مسدود نکند.

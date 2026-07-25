@@ -103,9 +103,32 @@ def write_result(path: Path, config: dict[str, Any], source: str = DEFAULT_URL) 
     return result
 
 
+def write_mikrotik(path: Path, ips: list[str], address_list: str = "CounterStrike") -> None:
+    """Atomically write an importable RouterOS address-list script."""
+    if not address_list or any(character in address_list for character in '"\r\n'):
+        raise ValueError("MikroTik address-list name contains invalid characters")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as output:
+            output.write(f'/ip firewall address-list remove [find list="{address_list}"]\n')
+            for address in ips:
+                output.write(
+                    f'/ip firewall address-list add address={address} '
+                    f'list="{address_list}" comment="Steam CS2 relay"\n'
+                )
+        os.replace(temporary_name, path)
+    except BaseException:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
+        raise
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("ips.json"))
+    parser.add_argument("--mikrotik-output", type=Path, default=Path("list.rsc"))
+    parser.add_argument("--mikrotik-list", default="CounterStrike")
     parser.add_argument("--url", default=DEFAULT_URL)
     parser.add_argument("--input", type=Path, help="read a saved Steam response instead")
     args = parser.parse_args()
@@ -118,9 +141,10 @@ def main() -> int:
         config = fetch_config(args.url)
         source = args.url
     result = write_result(args.output, config, source)
+    write_mikrotik(args.mikrotik_output, result["ips"], args.mikrotik_list)
     print(
         f"Wrote {result['count']} relay IPs (revision {result['revision']}) "
-        f"to {args.output}"
+        f"to {args.output} and {args.mikrotik_output}"
     )
     return 0
 

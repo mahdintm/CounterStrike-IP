@@ -50,7 +50,7 @@ jobs:
           for run in 1 2 3 4 5; do
             echo "::group::Update $run of 5"
             git pull --rebase origin "$BRANCH"
-            python scripts/update_ips.py --output ips.json
+            python scripts/update_ips.py --output ips.json --mikrotik-output list.rsc
 
             # Always expose a human-readable result in both the log and summary.
             python - <<'PY'
@@ -68,8 +68,8 @@ jobs:
               summary.write(f"### Update {message}\n\n")
           PY
 
-            if [[ -n "$(git status --porcelain -- ips.json)" ]]; then
-              git add ips.json
+            if [[ -n "$(git status --porcelain -- ips.json list.rsc)" ]]; then
+              git add ips.json list.rsc
               git commit -m "chore: update Counter-Strike relay IPs"
 
               # A concurrent commit can land between pull and push. Rebase and
@@ -86,7 +86,7 @@ jobs:
                 sleep 5
               done
             else
-              echo "ips.json is unchanged; nothing to commit"
+              echo "ips.json and list.rsc are unchanged; nothing to commit"
             fi
             echo "::endgroup::"
 
