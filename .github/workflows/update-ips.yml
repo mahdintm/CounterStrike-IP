@@ -1,0 +1,51 @@
+name: Update Counter-Strike relay IPs
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub's shortest cron interval is five minutes. Each run updates once a
+    # minute for five minutes so the effective polling interval is 60 seconds.
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-counter-strike-ips
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch, save, and push every 60 seconds
+        env:
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for run in 1 2 3 4 5; do
+            python scripts/update_ips.py
+
+            # git diff does not report a newly-created, untracked ips.json.
+            if [ -n "$(git status --porcelain -- ips.json)" ]; then
+              git add ips.json
+              git commit -m "chore: update Counter-Strike relay IPs"
+              git pull --rebase origin "$BRANCH"
+              git push origin "HEAD:$BRANCH"
+            fi
+
+            if [ "$run" -lt 5 ]; then
+              sleep 60
+            fi
+          done
