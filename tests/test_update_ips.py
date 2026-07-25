@@ -8,7 +8,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.update_ips import extract_ips, fetch_config, write_mikrotik, write_result
+from scripts.update_ips import (
+    AUTHOR,
+    extract_ips,
+    fetch_config,
+    write_mikrotik,
+    write_plain_list,
+    write_result,
+)
 
 
 def _ip_sort_key(value):
@@ -68,6 +75,8 @@ class UpdateIpsTests(unittest.TestCase):
             leftovers = list(output.parent.glob(".ips.json.*"))
         self.assertEqual(data, result)
         self.assertEqual(data["source"], "fixture.json")
+        self.assertEqual(data["author"]["name"], AUTHOR)
+        self.assertIn("github.com/", data["repository"])
         self.assertEqual(data["revision"], 42)
         self.assertEqual(data["count"], 2)
         self.assertEqual(data["ips"], ["10.0.0.1", "10.0.0.2"])
@@ -84,21 +93,34 @@ class UpdateIpsTests(unittest.TestCase):
     def test_writes_importable_mikrotik_script(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "list.rsc"
-            write_mikrotik(output, ["10.0.0.1", "10.0.0.2"])
+            write_mikrotik(output, ["10.0.0.1", "10.0.0.2"], "2026-07-25T12:00:00+00:00")
             lines = output.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(lines[0], "# Repository: https://github.com/mahdintm/CounterStrike-IP")
+        self.assertIn("# Author: Mahdi Nemati", lines[1])
+        self.assertEqual(lines[2], "# Updated at: 2026-07-25T12:00:00+00:00")
         self.assertEqual(
-            lines[0],
+            lines[3],
             '/ip firewall address-list remove [find list="CounterStrike"]',
         )
-        self.assertIn('address=10.0.0.1 list="CounterStrike"', lines[1])
-        self.assertIn('address=10.0.0.2 list="CounterStrike"', lines[2])
+        self.assertIn('address=10.0.0.1 list="CounterStrike"', lines[4])
+        self.assertIn("Updated 2026-07-25T12:00:00+00:00 by Mahdi Nemati", lines[4])
+        self.assertIn('address=10.0.0.2 list="CounterStrike"', lines[5])
+
+    def test_writes_plain_ip_list(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "list.txt"
+            write_plain_list(output, ["1.1.1.1", "2.2.2.2", "3.3.3.3"])
+            contents = output.read_text(encoding="utf-8")
+        self.assertEqual(contents, "1.1.1.1\n2.2.2.2\n3.3.3.3\n")
 
     def test_committed_mikrotik_output_matches_json(self):
         result = json.loads(Path("ips.json").read_text(encoding="utf-8"))
         contents = Path("list.rsc").read_text(encoding="utf-8")
+        plain_ips = Path("list.txt").read_text(encoding="utf-8").splitlines()
         for address in result["ips"]:
             self.assertIn(f"address={address} ", contents)
         self.assertEqual(contents.count("/ip firewall address-list add "), result["count"])
+        self.assertEqual(plain_ips, result["ips"])
 
     def test_cli_end_to_end_with_local_http_server(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -106,6 +128,7 @@ class UpdateIpsTests(unittest.TestCase):
             (root / "config.json").write_text(json.dumps(self.config), encoding="utf-8")
             output = root / "result.json"
             mikrotik_output = root / "result.rsc"
+            plain_output = root / "result.txt"
             server_code = (
                 "import http.server, os; "
                 f"os.chdir({directory!r}); "
@@ -130,6 +153,8 @@ class UpdateIpsTests(unittest.TestCase):
                         str(output),
                         "--mikrotik-output",
                         str(mikrotik_output),
+                        "--plain-output",
+                        str(plain_output),
                     ],
                     check=True,
                     capture_output=True,
@@ -141,8 +166,10 @@ class UpdateIpsTests(unittest.TestCase):
                 process.communicate(timeout=5)
             result = json.loads(output.read_text(encoding="utf-8"))
             mikrotik_contents = mikrotik_output.read_text(encoding="utf-8")
+            plain_contents = plain_output.read_text(encoding="utf-8")
         self.assertEqual(result["count"], 2)
         self.assertIn("address=10.0.0.1", mikrotik_contents)
+        self.assertEqual(plain_contents, "10.0.0.1\n10.0.0.2\n")
         self.assertIn("Wrote 2 relay IPs", completed.stdout)
 
 

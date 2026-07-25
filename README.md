@@ -4,6 +4,7 @@ Automatically fetches Counter-Strike 2 relay IPv4 addresses from Steam's SDR API
 
 - [`ips.json`](ips.json): structured JSON with the Steam revision, update time, count, and sorted IP addresses.
 - [`list.rsc`](list.rsc): a MikroTik RouterOS import script that refreshes the `CounterStrike` firewall address list.
+- [`list.txt`](list.txt): a plain-text list containing exactly one IP address per line.
 
 ## MikroTik automatic update
 
@@ -21,12 +22,12 @@ To refresh automatically every 15 minutes, add a scheduler entry:
 /system scheduler add name="Update-CS2-IPs" interval=15m start-time=startup on-event="/tool fetch url=\"https://raw.githubusercontent.com/mahdintm/CounterStrike-IP/main/list.rsc\" dst-path=\"list.rsc\"; /import file-name=\"list.rsc\"; /file remove \"list.rsc\""
 ```
 
-Each import first removes the old `CounterStrike` entries and then adds the current Steam relay IPs. Other firewall address lists are not modified.
+Each import first removes the old `CounterStrike` entries and then adds the current Steam relay IPs. The file header identifies the repository, author, and update time; every address-list comment also contains the update time and author signature. Other firewall address lists are not modified.
 
 ## Run locally
 
 ```bash
-python3 scripts/update_ips.py --output ips.json --mikrotik-output list.rsc
+python3 scripts/update_ips.py --output ips.json --mikrotik-output list.rsc --plain-output list.txt
 ```
 
 The updater validates all addresses, removes duplicates, sorts them numerically, and writes both files atomically. Failed requests are retried three times. A saved API response can be used without internet:
@@ -53,7 +54,7 @@ python3 -m compileall -q scripts tests
 
 ## فارسی
 
-این مخزن IPهای رله Counter-Strike 2 را از API استیم دریافت می‌کند و دو خروجی آماده می‌سازد: فایل JSON در [`ips.json`](ips.json) و اسکریپت قابل import میکروتیک در [`list.rsc`](list.rsc).
+این مخزن IPهای رله Counter-Strike 2 را از API استیم دریافت می‌کند و سه خروجی آماده می‌سازد: فایل JSON در [`ips.json`](ips.json)، اسکریپت قابل import میکروتیک در [`list.rsc`](list.rsc) و لیست سادهٔ IPها در [`list.txt`](list.txt). اطلاعات نویسنده و مخزن داخل JSON ثبت می‌شود؛ سربرگ فایل میکروتیک نیز نام مخزن، امضای نویسنده و تاریخ به‌روزرسانی را دارد و تاریخ و امضا در comment هر IP تکرار می‌شود.
 
 ### به‌روزرسانی خودکار میکروتیک
 
@@ -67,4 +68,4 @@ python3 -m compileall -q scripts tests
 
 برای اجرای خودکار هر ۱۵ دقیقه از دستور scheduler بخش انگلیسی بالا استفاده کنید. هنگام import فقط رکوردهای لیست `CounterStrike` پاک و با IPهای جدید جایگزین می‌شوند و لیست‌های دیگر تغییری نمی‌کنند.
 
-workflow گیت‌هاب هر دو فایل `ips.json` و `list.rsc` را می‌سازد، commit می‌کند و روی شاخه اصلی push می‌کند. در تنظیمات Actions باید دسترسی **Read and write permissions** فعال باشد و branch protection نیز push ربات GitHub Actions را مسدود نکند.
+workflow گیت‌هاب هر سه فایل `ips.json`، `list.rsc` و `list.txt` را می‌سازد، commit می‌کند و روی شاخه اصلی push می‌کند. در تنظیمات Actions باید دسترسی **Read and write permissions** فعال باشد و branch protection نیز push ربات GitHub Actions را مسدود نکند.
