@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import io
 import json
 import os
@@ -21,6 +22,14 @@ class Response(io.BytesIO):
 
     def __exit__(self, *args):
         self.close()
+=======
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from scripts.update_ips import extract_ips, write_result
+>>>>>>> main
 
 
 class UpdateIpsTests(unittest.TestCase):
@@ -35,6 +44,7 @@ class UpdateIpsTests(unittest.TestCase):
             },
         }
 
+<<<<<<< HEAD
     def test_fetches_and_validates_response(self):
         response = Response(json.dumps(self.config).encode())
         with patch("urllib.request.urlopen", return_value=response) as urlopen:
@@ -115,6 +125,19 @@ class UpdateIpsTests(unittest.TestCase):
             result = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(result["count"], 2)
         self.assertIn("Wrote 2 relay IPs", completed.stdout)
+=======
+    def test_extracts_unique_numerically_sorted_addresses(self):
+        self.assertEqual(extract_ips(self.config), ["10.0.0.1", "10.0.0.2"])
+
+    def test_writes_expected_json(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "ips.json"
+            write_result(output, self.config)
+            data = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(data["revision"], 42)
+        self.assertEqual(data["count"], 2)
+        self.assertEqual(data["ips"], ["10.0.0.1", "10.0.0.2"])
+>>>>>>> main
 
 
 if __name__ == "__main__":
