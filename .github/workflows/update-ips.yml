@@ -1,0 +1,97 @@
+name: Update Counter-Strike relay IPs
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/update-ips.yml"
+      - "scripts/**"
+  schedule:
+    # GitHub cron cannot run more often than every five minutes. The job stays
+    # alive and performs five updates, 60 seconds apart.
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-counter-strike-ips
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BRANCH: ${{ github.event.repository.default_branch }}
+      SOURCE_REPOSITORY: https://github.com/${{ github.repository }}
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Fetch, display, commit, and push IPs every 60 seconds
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Target branch: $BRANCH"
+
+          for run in 1 2 3 4 5; do
+            echo "::group::Update $run of 5"
+            git pull --rebase origin "$BRANCH"
+            python scripts/update_ips.py --output ips.json --mikrotik-output list.rsc --plain-output list.txt
+
+            # Always expose a human-readable result in both the log and summary.
+            python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result = json.loads(Path("ips.json").read_text(encoding="utf-8"))
+          message = (
+              f"Revision: {result['revision']} | IP count: {result['count']} | "
+              f"Updated: {result['updated_at']}"
+          )
+          print(message)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"### Update {message}\n\n")
+          PY
+
+            if [[ -n "$(git status --porcelain -- ips.json list.rsc list.txt)" ]]; then
+              git add ips.json list.rsc list.txt
+              git commit -m "chore: update Counter-Strike relay IPs"
+
+              # A concurrent commit can land between pull and push. Rebase and
+              # retry rather than losing the generated output.
+              for attempt in 1 2 3; do
+                if git push origin "HEAD:$BRANCH"; then
+                  break
+                fi
+                if [[ "$attempt" -eq 3 ]]; then
+                  echo "Could not push ips.json after 3 attempts" >&2
+                  exit 1
+                fi
+                git pull --rebase origin "$BRANCH"
+                sleep 5
+              done
+            else
+              echo "Generated output files are unchanged; nothing to commit"
+            fi
+            echo "::endgroup::"
+
+            if [[ "$run" -lt 5 ]]; then
+              sleep 60
+            fi
+          done

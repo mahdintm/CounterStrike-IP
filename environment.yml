@@ -1,0 +1,7 @@
+name: counterstrike-ip
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - flake8
+  - pytest
