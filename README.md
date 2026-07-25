@@ -11,7 +11,7 @@ Automatically fetches Counter-Strike 2 relay IPv4 addresses from Steam's SDR API
 Paste this into a RouterOS terminal. Replace `<OWNER>` and `<REPOSITORY>` if this repository is forked or renamed:
 
 ```routeros
-/tool fetch url="https://raw.githubusercontent.com/<OWNER>/<REPOSITORY>/main/list.rsc" dst-path="list.rsc"
+/tool fetch url="https://raw.githubusercontent.com/mahdintm/CounterStrike-IP/main/list.rsc" dst-path="list.rsc"
 /import file-name="list.rsc"
 /file remove "list.rsc"
 ```
@@ -19,7 +19,7 @@ Paste this into a RouterOS terminal. Replace `<OWNER>` and `<REPOSITORY>` if thi
 To refresh automatically every 15 minutes, add a scheduler entry:
 
 ```routeros
-/system scheduler add name="Update-CS2-IPs" interval=15m start-time=startup on-event="/tool fetch url=\"https://raw.githubusercontent.com/<OWNER>/<REPOSITORY>/main/list.rsc\" dst-path=\"list.rsc\"; /import file-name=\"list.rsc\"; /file remove \"list.rsc\""
+/system scheduler add name="Update-CS2-IPs" interval=15m start-time=startup on-event="/tool fetch url=\"https://raw.githubusercontent.com/mahdintm/CounterStrike-IP/main/list.rsc\" dst-path=\"list.rsc\"; /import file-name=\"list.rsc\"; /file remove \"list.rsc\""
 ```
 
 Each import first removes the old `CounterStrike` entries and then adds the current Steam relay IPs. The file header identifies the repository, author, and update time; every address-list comment also contains the update time and author signature. Other firewall address lists are not modified.
@@ -61,7 +61,7 @@ python3 -m compileall -q scripts tests
 دستور زیر را در ترمینال RouterOS اجرا کنید و `<OWNER>` و `<REPOSITORY>` را با نام صاحب و مخزن جایگزین کنید:
 
 ```routeros
-/tool fetch url="https://raw.githubusercontent.com/<OWNER>/<REPOSITORY>/main/list.rsc" dst-path="list.rsc"
+/tool fetch url="https://raw.githubusercontent.com/mahdintm/CounterStrike-IP/main/list.rsc" dst-path="list.rsc"
 /import file-name="list.rsc"
 /file remove "list.rsc"
 ```
