@@ -6,7 +6,7 @@
   "repository": "https://github.com/mahdintm/CounterStrike-IP",
   "source": "https://api.steampowered.com/ISteamApps/GetSDRConfig/v1/?appid=730",
   "revision": 1786739253,
-  "updated_at": "2026-08-19T03:59:35+00:00",
+  "updated_at": "2026-08-19T04:27:05+00:00",
   "count": 210,
   "ips": [
     "39.156.182.1",
